@@ -100,15 +100,18 @@ class YouTubeClient:
             return existing, False
         return self.create_playlist(name, description, privacy), True
 
-    def existing_video_ids(self, playlist_id: str) -> set[str]:
-        """플레이리스트에 이미 들어있는 영상 ID 집합 (중복 추가 방지)."""
-        ids: set[str] = set()
+    def list_playlist_items(self, playlist_id: str) -> list[dict]:
+        """플레이리스트 항목을 position 순서대로 반환.
+
+        각 원소: {"playlist_item_id": ..., "video_id": ..., "position": ...}
+        """
+        items: list[dict] = []
         page_token = None
         while True:
             resp = (
                 self.api.playlistItems()
                 .list(
-                    part="contentDetails",
+                    part="contentDetails,snippet",
                     playlistId=playlist_id,
                     maxResults=50,
                     pageToken=page_token,
@@ -116,24 +119,39 @@ class YouTubeClient:
                 .execute()
             )
             for item in resp.get("items", []):
-                ids.add(item["contentDetails"]["videoId"])
+                items.append(
+                    {
+                        "playlist_item_id": item["id"],
+                        "video_id": item["contentDetails"]["videoId"],
+                        "position": item["snippet"]["position"],
+                    }
+                )
             page_token = resp.get("nextPageToken")
             if not page_token:
-                return ids
+                break
+        items.sort(key=lambda x: x["position"])
+        return items
 
-    def add_to_playlist(self, playlist_id: str, video_id: str) -> None:
+    def existing_video_ids(self, playlist_id: str) -> set[str]:
+        """플레이리스트에 이미 들어있는 영상 ID 집합 (중복 추가 방지)."""
+        return {item["video_id"] for item in self.list_playlist_items(playlist_id)}
+
+    def add_to_playlist(
+        self, playlist_id: str, video_id: str, position: int | None = None
+    ) -> None:
+        snippet: dict = {
+            "playlistId": playlist_id,
+            "resourceId": {"kind": "youtube#video", "videoId": video_id},
+        }
+        # position 을 지정하면 해당 위치에 삽입(0 = 맨 앞), 없으면 맨 뒤에 추가.
+        if position is not None:
+            snippet["position"] = position
         self.api.playlistItems().insert(
-            part="snippet",
-            body={
-                "snippet": {
-                    "playlistId": playlist_id,
-                    "resourceId": {
-                        "kind": "youtube#video",
-                        "videoId": video_id,
-                    },
-                }
-            },
+            part="snippet", body={"snippet": snippet}
         ).execute()
+
+    def remove_playlist_item(self, playlist_item_id: str) -> None:
+        self.api.playlistItems().delete(id=playlist_item_id).execute()
 
     # --- 검색 / 영상 상세 -----------------------------------------------
 

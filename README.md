@@ -86,6 +86,7 @@ Actions 탭에서 **Run workflow** 로 수동 실행도 가능하며, `dry_run` 
 
 - `queries`: 검색어 목록
 - `run.max_additions`: 1회 추가 개수 (기본 5)
+- `playlist.max_size`: 플레이리스트 최대 영상 수. 새 영상은 **맨 앞**에 추가되고, 초과분은 맨 뒤(오래된 것)부터 삭제 (기본 30, `0`=무제한)
 - `filters.prefer_keywords` / `exclude_keywords`: 가점/탈락 키워드
 - `filters.min_duration_seconds` / `max_duration_seconds`: 영상 길이 범위
 - `filters.min_score`: 통과 최소 점수

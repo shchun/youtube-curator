@@ -84,12 +84,27 @@ def run(config_path: str, dry_run: bool = False) -> int:
         print("\n[dry-run] 실제로 추가하지 않았습니다.")
         return 0
 
-    # 6. 플레이리스트에 추가
+    # 6. 플레이리스트 앞쪽에 추가
+    # position=0 으로 삽입하면 매번 맨 앞에 들어가므로, 점수 낮은 것부터(역순) 넣어야
+    # 점수 높은 영상이 최종적으로 맨 위에 온다.
     added = 0
-    for v in selected:
-        client.add_to_playlist(playlist_id, v.video_id)
+    for v in reversed(selected):
+        client.add_to_playlist(playlist_id, v.video_id, position=0)
         added += 1
-    print(f"\n{added}개 영상을 '{cfg.playlist.name}' 에 추가했습니다.")
+    print(f"\n{added}개 영상을 '{cfg.playlist.name}' 앞쪽에 추가했습니다.")
+
+    # 7. 개수 상한 유지 (초과분은 맨 뒤=오래된 영상부터 삭제)
+    max_size = cfg.playlist.max_size
+    if max_size and max_size > 0:
+        items = client.list_playlist_items(playlist_id)
+        overflow = items[max_size:]
+        for item in overflow:
+            client.remove_playlist_item(item["playlist_item_id"])
+        if overflow:
+            print(
+                f"상한({max_size}개) 초과로 오래된 영상 {len(overflow)}개를 삭제했습니다. "
+                f"현재 {len(items) - len(overflow)}개."
+            )
     return 0
 
 

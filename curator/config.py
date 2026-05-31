@@ -14,6 +14,7 @@ class PlaylistConfig:
     name: str = "Work Focus"
     privacy: str = "unlisted"
     description: str = ""
+    max_size: int = 0  # 0 = 무제한
 
 
 @dataclass
