@@ -1,0 +1,41 @@
+name: Curate Work Focus Playlist
+
+on:
+  schedule:
+    # 매일 UTC 21:00 = KST 06:00 에 실행
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "추가하지 않고 선정 결과만 출력"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curate-work-focus
+  cancel-in-progress: false
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run curator
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python -m curator.main --config config.yaml \
+            ${{ inputs.dry_run && '--dry-run' || '' }}

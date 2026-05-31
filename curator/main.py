@@ -1,0 +1,105 @@
+"""엔트리포인트: 검색 -> 채점 -> 플레이리스트에 추가.
+
+실행:
+    python -m curator.main --config config.yaml
+    python -m curator.main --config config.yaml --dry-run   # 추가하지 않고 결과만 출력
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+
+from .config import Config
+from .filters import ScoredVideo, rank_candidates
+from .youtube_client import MissingCredentials, YouTubeClient
+
+
+def _fmt_duration(seconds: int) -> str:
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def run(config_path: str, dry_run: bool = False) -> int:
+    cfg = Config.load(config_path)
+    client = YouTubeClient()
+
+    # 1. 대상 플레이리스트 확보
+    playlist_id, created = client.get_or_create_playlist(
+        cfg.playlist.name, cfg.playlist.description, cfg.playlist.privacy
+    )
+    print(
+        f"플레이리스트 '{cfg.playlist.name}' "
+        f"({'생성됨' if created else '기존'}) id={playlist_id}"
+    )
+
+    # 2. 이미 들어있는 영상 (중복 방지)
+    existing = client.existing_video_ids(playlist_id)
+    print(f"기존 영상 {len(existing)}개")
+
+    # 3. 검색어별 후보 수집
+    candidate_ids: list[str] = []
+    for query in cfg.queries:
+        ids = client.search_video_ids(query, cfg.run.candidates_per_query)
+        print(f"  검색 '{query}' -> {len(ids)}개 후보")
+        candidate_ids.extend(ids)
+
+    # 중복 ID 제거(순서 유지)
+    unique_ids = list(dict.fromkeys(candidate_ids))
+    print(f"고유 후보 {len(unique_ids)}개")
+
+    if not unique_ids:
+        print("후보가 없습니다. 종료.")
+        return 0
+
+    # 4. 상세 조회 + 채점/필터
+    details = client.videos_details(unique_ids)
+    ranked = rank_candidates(details, cfg.filters, exclude_ids=existing)
+    print(f"필터 통과 {len(ranked)}개")
+
+    # 5. 상위 N개 선정
+    selected: list[ScoredVideo] = ranked[: cfg.run.max_additions]
+    if not selected:
+        print("추가할 영상이 없습니다. 종료.")
+        return 0
+
+    print(f"\n추가 대상 {len(selected)}개:")
+    for v in selected:
+        print(
+            f"  [{v.score}] {v.title}  ({_fmt_duration(v.duration_seconds)})"
+            f" — {v.channel}\n      {v.url}  {' '.join(v.reasons)}"
+        )
+
+    if dry_run:
+        print("\n[dry-run] 실제로 추가하지 않았습니다.")
+        return 0
+
+    # 6. 플레이리스트에 추가
+    added = 0
+    for v in selected:
+        client.add_to_playlist(playlist_id, v.video_id)
+        added += 1
+    print(f"\n{added}개 영상을 '{cfg.playlist.name}' 에 추가했습니다.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="YouTube Work Focus Playlist Curator")
+    parser.add_argument("--config", default="config.yaml", help="설정 파일 경로")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="플레이리스트를 수정하지 않고 선정 결과만 출력",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        return run(args.config, dry_run=args.dry_run)
+    except MissingCredentials as exc:
+        print(f"인증 오류: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
