@@ -10,6 +10,11 @@ from __future__ import annotations
 import argparse
 import sys
 
+# 영상 제목에 이모지/비라틴 문자가 흔해, 콘솔 인코딩(cp949 등)에서도 깨지지 않도록 UTF-8 고정.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 from .config import Config
 from .filters import ScoredVideo, rank_candidates
 from .youtube_client import MissingCredentials, YouTubeClient
@@ -35,7 +40,11 @@ def run(config_path: str, dry_run: bool = False) -> int:
     )
 
     # 2. 이미 들어있는 영상 (중복 방지)
-    existing = client.existing_video_ids(playlist_id)
+    # 방금 생성한 플레이리스트는 비어 있고, API 전파 지연으로 조회 시 404가 날 수 있어 건너뛴다.
+    if created:
+        existing: set[str] = set()
+    else:
+        existing = client.existing_video_ids(playlist_id)
     print(f"기존 영상 {len(existing)}개")
 
     # 3. 검색어별 후보 수집
