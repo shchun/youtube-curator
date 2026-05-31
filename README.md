@@ -77,7 +77,7 @@ python -m curator.main --config config.yaml
 
 ## 자동 실행
 
-[`.github/workflows/curate.yml`](.github/workflows/curate.yml) 가 매일 **06:00 KST**(UTC 21:00)에 실행됩니다.
+[`.github/workflows/curate.yml`](.github/workflows/curate.yml) 가 매일 **05:00 KST**(UTC 20:00)에 실행됩니다.
 Actions 탭에서 **Run workflow** 로 수동 실행도 가능하며, `dry_run` 옵션을 켜면 추가 없이 결과만 확인합니다.
 
 ## 추천 기준 조정

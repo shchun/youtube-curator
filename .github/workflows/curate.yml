@@ -2,8 +2,8 @@ name: Curate Work Focus Playlist
 
 on:
   schedule:
-    # 매일 UTC 21:00 = KST 06:00 에 실행
-    - cron: "0 21 * * *"
+    # 매일 UTC 20:00 = KST 05:00 에 실행
+    - cron: "0 20 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
