@@ -1,63 +1,136 @@
-# YouTube "Work Focus" Playlist Curator — 추천 기준 설정
+# YouTube Playlist Curator — 추천 기준 설정
 #
 # 이 파일만 수정하면 큐레이터 동작이 바뀝니다.
-# 컨셉: "말 적고, 로우파이이고, 집중력 향상" 영상을 우선한다.
+# playlists: 아래에 여러 플레이리스트를 두면 한 번 실행에 모두 큐레이션됩니다.
+# 각 플레이리스트는 자신만의 queries / filters / run 설정을 가집니다.
 
-playlist:
-  # 대상 플레이리스트 이름. 없으면 자동 생성한다.
-  name: "Work Focus"
-  # public | unlisted | private
-  privacy: "unlisted"
-  description: "일할 때 듣기 좋은 영상 자동 큐레이션 (lo-fi / no vocals / focus)."
-  # 플레이리스트 최대 영상 수. 초과하면 오래된(맨 뒤) 영상부터 삭제한다. 0 = 무제한.
-  max_size: 30
+playlists:
+  # ─────────────────────────────────────────────────────────────
+  # 1) Work Focus — "말 적고, 로우파이이고, 집중력 향상" 음악
+  # ─────────────────────────────────────────────────────────────
+  - name: "Work Focus"
+    # public | unlisted | private
+    privacy: "unlisted"
+    description: "일할 때 듣기 좋은 영상 자동 큐레이션 (lo-fi / no vocals / focus)."
+    # 플레이리스트 최대 영상 수. 초과하면 오래된(맨 뒤) 영상부터 삭제한다. 0 = 무제한.
+    max_size: 30
 
-run:
-  # 1회 실행 시 추가할 최대 영상 개수
-  max_additions: 5
-  # 검색어당 가져올 후보 수 (API 비용 고려)
-  candidates_per_query: 15
+    run:
+      # 1회 실행 시 추가할 최대 영상 개수
+      max_additions: 5
+      # 검색어당 가져올 후보 수 (API 비용 고려)
+      candidates_per_query: 15
 
-# 후보 수집 검색어
-queries:
-  - "lofi coding music no vocals"
-  - "deep focus music no talking"
-  - "ambient music for programming"
-  - "study music no vocals"
-  - "lofi hip hop radio focus"
+    queries:
+      - "lofi coding music no vocals"
+      - "deep focus music no talking"
+      - "ambient music for programming"
+      - "study music no vocals"
+      - "lofi hip hop radio focus"
 
-filters:
-  # 영상 길이 (초). 집중용은 보통 길다. 너무 짧은 클립/광고성 영상 제외.
-  min_duration_seconds: 1200      # 20분
-  max_duration_seconds: 21600     # 6시간
-  # YouTube 카테고리 10 = Music. 비워두면 카테고리 제한 없음.
-  allowed_category_ids:
-    - "10"
-  # 제목/설명에 아래 단어가 하나라도 있으면 가점 (집중에 좋은 신호)
-  prefer_keywords:
-    - "no vocals"
-    - "no talking"
-    - "instrumental"
-    - "lofi"
-    - "lo-fi"
-    - "ambient"
-    - "focus"
-    - "concentration"
-    - "deep work"
-    - "study"
-  # 제목/설명에 아래 단어가 있으면 제외 (말 많음 / 집중 방해 신호)
-  exclude_keywords:
-    - "podcast"
-    - "interview"
-    - "talk show"
-    - "tutorial"
-    - "react"
-    - "reaction"
-    - "vlog"
-    - "lyrics"
-    - "with lyrics"
-    - "asmr eating"
-    - "live stream"   # 24/7 라이브는 플레이리스트에 부적합
-    - "livestream"
-  # 채점 통과 최소 점수 (prefer_keyword 1개당 +1, 길이/카테고리 가점 별도)
-  min_score: 2
+    filters:
+      # 영상 길이 (초). 집중용은 보통 길다. 너무 짧은 클립/광고성 영상 제외.
+      min_duration_seconds: 1200      # 20분
+      max_duration_seconds: 21600     # 6시간
+      # YouTube 카테고리 10 = Music. 비워두면 카테고리 제한 없음.
+      allowed_category_ids:
+        - "10"
+      # 제목/설명에 아래 단어가 하나라도 있으면 가점 (집중에 좋은 신호)
+      prefer_keywords:
+        - "no vocals"
+        - "no talking"
+        - "instrumental"
+        - "lofi"
+        - "lo-fi"
+        - "ambient"
+        - "focus"
+        - "concentration"
+        - "deep work"
+        - "study"
+      # 제목/설명에 아래 단어가 있으면 제외 (말 많음 / 집중 방해 신호)
+      exclude_keywords:
+        - "podcast"
+        - "interview"
+        - "talk show"
+        - "tutorial"
+        - "react"
+        - "reaction"
+        - "vlog"
+        - "lyrics"
+        - "with lyrics"
+        - "asmr eating"
+        - "live stream"   # 24/7 라이브는 플레이리스트에 부적합
+        - "livestream"
+      # 채점 통과 최소 점수 (prefer_keyword 1개당 +1, 길이/카테고리 가점 별도)
+      min_score: 2
+
+  # ─────────────────────────────────────────────────────────────
+  # 2) AI Programming Deep Dives — AI/LLM 프로그래밍에 대한 깊은 논의
+  #    (Work Focus 와 정반대: "말 많고, 깊고, 기술적인" 영상을 우선)
+  # ─────────────────────────────────────────────────────────────
+  - name: "AI Programming Deep Dives"
+    privacy: "unlisted"
+    description: "AI/LLM 개발에 대한 깊은 기술 논의 자동 큐레이션 (talks / podcasts / deep dives)."
+    max_size: 30
+
+    run:
+      max_additions: 5
+      candidates_per_query: 15
+
+    queries:
+      - "LLM engineering deep dive talk"
+      - "building AI agents discussion"
+      - "AI software engineering podcast"
+      - "transformer architecture explained in depth"
+      - "RAG system design discussion"
+      - "AI coding agents how they work"
+      - "machine learning systems engineering talk"
+      - "prompt engineering deep dive"
+
+    filters:
+      # 깊은 논의는 보통 길다. 짧은 쇼츠/티저는 제외, 너무 긴 24/7 라이브도 제외.
+      min_duration_seconds: 900       # 15분
+      max_duration_seconds: 14400     # 4시간
+      # 카테고리 제한 없음 (Education 27 / Science&Tech 28 / People&Blogs 22 등 섞여 있음)
+      allowed_category_ids: []
+      # 깊이 있는 기술 논의 신호
+      prefer_keywords:
+        - "deep dive"
+        - "deep-dive"
+        - "discussion"
+        - "explained"
+        - "in depth"
+        - "in-depth"
+        - "architecture"
+        - "engineering"
+        - "internals"
+        - "from scratch"
+        - "how it works"
+        - "agents"
+        - "agentic"
+        - "llm"
+        - "transformer"
+        - "rag"
+        - "fine-tuning"
+        - "fine tuning"
+        - "inference"
+        - "system design"
+        - "research"
+        - "paper"
+      # 잡음/광고/입문 클릭베이트 제외
+      exclude_keywords:
+        - "#shorts"
+        - "shorts"
+        - "in 60 seconds"
+        - "in 5 minutes"
+        - "crash course"
+        - "for beginners"
+        - "no code"
+        - "make money"
+        - "earn money"
+        - "side hustle"
+        - "free course"
+        - "live stream"
+        - "livestream"
+      # 음악 플레이리스트보다 통과 문턱을 낮춰 다양성을 확보
+      min_score: 1

@@ -15,7 +15,7 @@ for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
-from .config import Config
+from .config import Config, Job
 from .filters import ScoredVideo, rank_candidates
 from .youtube_client import MissingCredentials, YouTubeClient
 
@@ -26,16 +26,14 @@ def _fmt_duration(seconds: int) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
-def run(config_path: str, dry_run: bool = False) -> int:
-    cfg = Config.load(config_path)
-    client = YouTubeClient()
-
+def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
+    """플레이리스트 1개에 대한 큐레이션 1회 실행."""
     # 1. 대상 플레이리스트 확보
     playlist_id, created = client.get_or_create_playlist(
-        cfg.playlist.name, cfg.playlist.description, cfg.playlist.privacy
+        job.playlist.name, job.playlist.description, job.playlist.privacy
     )
     print(
-        f"플레이리스트 '{cfg.playlist.name}' "
+        f"플레이리스트 '{job.playlist.name}' "
         f"({'생성됨' if created else '기존'}) id={playlist_id}"
     )
 
@@ -49,8 +47,8 @@ def run(config_path: str, dry_run: bool = False) -> int:
 
     # 3. 검색어별 후보 수집
     candidate_ids: list[str] = []
-    for query in cfg.queries:
-        ids = client.search_video_ids(query, cfg.run.candidates_per_query)
+    for query in job.queries:
+        ids = client.search_video_ids(query, job.run.candidates_per_query)
         print(f"  검색 '{query}' -> {len(ids)}개 후보")
         candidate_ids.extend(ids)
 
@@ -59,19 +57,19 @@ def run(config_path: str, dry_run: bool = False) -> int:
     print(f"고유 후보 {len(unique_ids)}개")
 
     if not unique_ids:
-        print("후보가 없습니다. 종료.")
-        return 0
+        print("후보가 없습니다.")
+        return
 
     # 4. 상세 조회 + 채점/필터
     details = client.videos_details(unique_ids)
-    ranked = rank_candidates(details, cfg.filters, exclude_ids=existing)
+    ranked = rank_candidates(details, job.filters, exclude_ids=existing)
     print(f"필터 통과 {len(ranked)}개")
 
     # 5. 상위 N개 선정
-    selected: list[ScoredVideo] = ranked[: cfg.run.max_additions]
+    selected: list[ScoredVideo] = ranked[: job.run.max_additions]
     if not selected:
-        print("추가할 영상이 없습니다. 종료.")
-        return 0
+        print("추가할 영상이 없습니다.")
+        return
 
     print(f"\n추가 대상 {len(selected)}개:")
     for v in selected:
@@ -82,7 +80,7 @@ def run(config_path: str, dry_run: bool = False) -> int:
 
     if dry_run:
         print("\n[dry-run] 실제로 추가하지 않았습니다.")
-        return 0
+        return
 
     # 6. 플레이리스트 앞쪽에 추가
     # position=0 으로 삽입하면 매번 맨 앞에 들어가므로, 점수 낮은 것부터(역순) 넣어야
@@ -91,10 +89,10 @@ def run(config_path: str, dry_run: bool = False) -> int:
     for v in reversed(selected):
         client.add_to_playlist(playlist_id, v.video_id, position=0)
         added += 1
-    print(f"\n{added}개 영상을 '{cfg.playlist.name}' 앞쪽에 추가했습니다.")
+    print(f"\n{added}개 영상을 '{job.playlist.name}' 앞쪽에 추가했습니다.")
 
     # 7. 개수 상한 유지 (초과분은 맨 뒤=오래된 영상부터 삭제)
-    max_size = cfg.playlist.max_size
+    max_size = job.playlist.max_size
     if max_size and max_size > 0:
         items = client.list_playlist_items(playlist_id)
         overflow = items[max_size:]
@@ -105,6 +103,17 @@ def run(config_path: str, dry_run: bool = False) -> int:
                 f"상한({max_size}개) 초과로 오래된 영상 {len(overflow)}개를 삭제했습니다. "
                 f"현재 {len(items) - len(overflow)}개."
             )
+
+
+def run(config_path: str, dry_run: bool = False) -> int:
+    cfg = Config.load(config_path)
+    client = YouTubeClient()
+
+    for i, job in enumerate(cfg.jobs):
+        if i:
+            print("\n" + "=" * 60)
+        print(f"[{i + 1}/{len(cfg.jobs)}] 플레이리스트 큐레이션 시작")
+        run_job(client, job, dry_run=dry_run)
     return 0
 
 
