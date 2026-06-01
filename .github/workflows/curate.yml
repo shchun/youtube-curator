@@ -2,8 +2,9 @@ name: Curate Work Focus Playlist
 
 on:
   schedule:
-    # 매일 UTC 20:00 = KST 05:00 에 실행
-    - cron: "0 20 * * *"
+    # 매일 UTC 20:07 = KST 05:07 에 실행
+    # (정각 :00 은 GitHub 스케줄러 부하로 지연/드롭이 잦아 분을 7로 어긋나게 둠)
+    - cron: "7 20 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
