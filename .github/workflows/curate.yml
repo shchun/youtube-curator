@@ -37,6 +37,13 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          # 추가된 영상 요약 메일(AWS SES). 비밀 아닌 값은 Actions Variables 로 관리.
+          SES_FROM_EMAIL: ${{ vars.SES_FROM_EMAIL }}
+          SES_TO_EMAIL: ${{ vars.SES_TO_EMAIL }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          # AWS 자격증명만 secret. (미설정 시 메일 발송은 자동으로 건너뜀)
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           python -m curator.main --config config.yaml \
             ${{ inputs.dry_run && '--dry-run' || '' }}

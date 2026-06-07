@@ -63,6 +63,29 @@ python scripts/get_refresh_token.py
 | `YOUTUBE_CLIENT_SECRET` | OAuth 클라이언트 시크릿 |
 | `YOUTUBE_REFRESH_TOKEN` | 위에서 발급한 리프레시 토큰 |
 
+### 4. 추가 영상 알림 메일 (선택, AWS SES)
+
+영상이 추가되면 요약을 메일로 받고 싶을 때만 설정합니다. 추가된 영상이 1개 이상일 때만,
+하루 실행당 1통으로 묶어 발송합니다. (아래 secret 이 없으면 메일 발송은 자동으로 건너뜀)
+
+1. AWS SES 에서 **발신 주소(또는 도메인)를 검증(verify)** 합니다. SES 가 샌드박스 모드라면
+   **수신 주소도 검증**해야 메일이 갑니다(프로덕션 액세스를 받으면 수신 검증 불필요).
+2. 발신/수신 주소·리전은 비밀이 아니라 **Actions Variables** 로 관리합니다
+   (Settings → Secrets and variables → Actions → **Variables** 탭). 코드 수정 없이 바꿀 수 있습니다.
+
+| Variable | 값 (예) |
+| --- | --- |
+| `SES_FROM_EMAIL` | `seunghyo.chun@precipi.com` (SES 에서 검증된 발신 주소) |
+| `SES_TO_EMAIL` | `seunghyo.chun@gmail.com` (생략하면 발신 주소와 동일) |
+| `AWS_REGION` | `us-east-1` (SES 가 설정된 리전) |
+
+3. **비밀인 AWS 자격증명 2개만** Actions **Secrets** 에 추가합니다:
+
+| Secret | 값 |
+| --- | --- |
+| `AWS_ACCESS_KEY_ID` | `ses:SendEmail` 권한이 있는 IAM 자격증명 |
+| `AWS_SECRET_ACCESS_KEY` | 〃 |
+
 ## 로컬 실행
 
 ```bash

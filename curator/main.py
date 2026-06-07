@@ -17,6 +17,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from .config import Config, Job
 from .filters import ScoredVideo, rank_candidates
+from .notify import send_summary
 from .youtube_client import MissingCredentials, YouTubeClient
 
 
@@ -26,8 +27,11 @@ def _fmt_duration(seconds: int) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
-def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
-    """플레이리스트 1개에 대한 큐레이션 1회 실행."""
+def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> list[ScoredVideo]:
+    """플레이리스트 1개에 대한 큐레이션 1회 실행.
+
+    실제로 추가한 영상 목록을 반환한다(dry-run 이거나 추가가 없으면 빈 리스트).
+    """
     # 1. 대상 플레이리스트 확보
     playlist_id, created = client.get_or_create_playlist(
         job.playlist.name, job.playlist.description, job.playlist.privacy
@@ -58,7 +62,7 @@ def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
 
     if not unique_ids:
         print("후보가 없습니다.")
-        return
+        return []
 
     # 4. 상세 조회 + 채점/필터
     details = client.videos_details(unique_ids)
@@ -69,7 +73,7 @@ def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
     selected: list[ScoredVideo] = ranked[: job.run.max_additions]
     if not selected:
         print("추가할 영상이 없습니다.")
-        return
+        return []
 
     print(f"\n추가 대상 {len(selected)}개:")
     for v in selected:
@@ -80,7 +84,7 @@ def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
 
     if dry_run:
         print("\n[dry-run] 실제로 추가하지 않았습니다.")
-        return
+        return []
 
     # 6. 플레이리스트 앞쪽에 추가
     # position=0 으로 삽입하면 매번 맨 앞에 들어가므로, 점수 낮은 것부터(역순) 넣어야
@@ -104,16 +108,26 @@ def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> None:
                 f"현재 {len(items) - len(overflow)}개."
             )
 
+    return selected
+
 
 def run(config_path: str, dry_run: bool = False) -> int:
     cfg = Config.load(config_path)
     client = YouTubeClient()
 
+    # 플레이리스트별 추가된 영상을 모아 마지막에 메일 1통으로 묶어 발송한다.
+    added_by_playlist: dict[str, list[ScoredVideo]] = {}
     for i, job in enumerate(cfg.jobs):
         if i:
             print("\n" + "=" * 60)
         print(f"[{i + 1}/{len(cfg.jobs)}] 플레이리스트 큐레이션 시작")
-        run_job(client, job, dry_run=dry_run)
+        added = run_job(client, job, dry_run=dry_run)
+        if added:
+            added_by_playlist[job.playlist.name] = added
+
+    # dry-run 이 아니고 실제 추가가 있었던 경우에만 요약 메일 발송.
+    if not dry_run:
+        send_summary(added_by_playlist)
     return 0
 
 
