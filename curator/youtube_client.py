@@ -12,11 +12,13 @@ GitHub Actions 에서는 환경변수로 주입된 리프레시 토큰으로 액
 from __future__ import annotations
 
 import os
+import sys
 from typing import Iterable
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 SCOPES = ["https://www.googleapis.com/auth/youtube"]
@@ -150,8 +152,26 @@ class YouTubeClient:
             part="snippet", body={"snippet": snippet}
         ).execute()
 
-    def remove_playlist_item(self, playlist_item_id: str) -> None:
-        self.api.playlistItems().delete(id=playlist_item_id).execute()
+    def remove_playlist_item(self, playlist_item_id: str) -> bool:
+        """재생목록 항목을 삭제한다.
+
+        삭제하면 True, 이미 사라진 항목(404 playlistItemNotFound)이면
+        경고만 남기고 False 를 반환한다. 그 외 HttpError 는 그대로 전파한다.
+        영상이 비공개/삭제되면 항목도 함께 사라질 수 있어, 목록 조회와
+        실제 삭제 사이의 시차로 404 가 발생할 수 있다.
+        """
+        try:
+            self.api.playlistItems().delete(id=playlist_item_id).execute()
+            return True
+        except HttpError as exc:
+            status = getattr(exc, "status_code", None) or exc.resp.status
+            if status == 404:
+                print(
+                    f"  항목 {playlist_item_id} 가 이미 없습니다(404). 건너뜁니다.",
+                    file=sys.stderr,
+                )
+                return False
+            raise
 
     # --- 검색 / 영상 상세 -----------------------------------------------
 
