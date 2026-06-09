@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from googleapiclient.errors import HttpError
+
 # 영상 제목에 이모지/비라틴 문자가 흔해, 콘솔 인코딩(cp949 등)에서도 깨지지 않도록 UTF-8 고정.
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
@@ -100,13 +102,30 @@ def run_job(client: YouTubeClient, job: Job, dry_run: bool = False) -> list[Scor
     if max_size and max_size > 0:
         items = client.list_playlist_items(playlist_id)
         overflow = items[max_size:]
+        removed = 0
+        failed = 0
         for item in overflow:
-            client.remove_playlist_item(item["playlist_item_id"])
+            # 개별 항목 삭제 실패가 나머지 삭제를 막지 않도록 각각 처리한다.
+            # 404(이미 삭제됨)는 remove_playlist_item 이 내부에서 건너뛰고 False 를
+            # 반환하므로 실패로 세지 않는다.
+            try:
+                if client.remove_playlist_item(item["playlist_item_id"]):
+                    removed += 1
+            except HttpError as exc:
+                failed += 1
+                print(
+                    f"  경고: 항목 {item['playlist_item_id']} 삭제 실패 — {exc}",
+                    file=sys.stderr,
+                )
         if overflow:
-            print(
-                f"상한({max_size}개) 초과로 오래된 영상 {len(overflow)}개를 삭제했습니다. "
-                f"현재 {len(items) - len(overflow)}개."
+            msg = (
+                f"상한({max_size}개) 초과분 {len(overflow)}개 중 "
+                f"{removed}개 삭제"
             )
+            if failed:
+                msg += f", {failed}개 실패"
+            msg += f". 현재 {len(items) - removed}개."
+            print(msg)
 
     return selected
 
