@@ -19,7 +19,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from .config import Config, Job
 from .filters import ScoredVideo, rank_candidates
-from .notify import send_summary
+from .notify import send_slack_summary, send_summary
 from .youtube_client import MissingCredentials, YouTubeClient
 
 
@@ -144,9 +144,10 @@ def run(config_path: str, dry_run: bool = False) -> int:
         if added:
             added_by_playlist[job.playlist.name] = added
 
-    # dry-run 이 아니고 실제 추가가 있었던 경우에만 요약 메일 발송.
+    # dry-run 이 아니고 실제 추가가 있었던 경우에만 요약 발송 (메일 + Slack).
     if not dry_run:
         send_summary(added_by_playlist)
+        send_slack_summary(added_by_playlist)
     return 0
 
 

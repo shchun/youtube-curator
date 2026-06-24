@@ -44,6 +44,8 @@ jobs:
           # AWS 자격증명만 secret. (미설정 시 메일 발송은 자동으로 건너뜀)
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # 추가된 영상 요약 Slack 알림. Webhook URL 은 secret. (미설정 시 자동으로 건너뜀)
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           python -m curator.main --config config.yaml \
             ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -86,6 +86,27 @@ python scripts/get_refresh_token.py
 | `AWS_ACCESS_KEY_ID` | `ses:SendEmail` 권한이 있는 IAM 자격증명 |
 | `AWS_SECRET_ACCESS_KEY` | 〃 |
 
+### 5. 추가 영상 알림 Slack (선택, Incoming Webhook)
+
+영상이 추가되면 Slack 채널로도 요약을 받고 싶을 때만 설정합니다. 메일과 동일하게
+추가된 영상이 1개 이상일 때만, 하루 실행당 1번 발송합니다. (아래 secret 이 없으면
+Slack 발송은 자동으로 건너뜀) 메일과 병행 사용 가능하며, 둘 중 하나만 켜도 됩니다.
+
+1. Slack [API 앱](https://api.slack.com/apps) → **Create New App** → From scratch
+2. **Incoming Webhooks** 활성화 → **Add New Webhook to Workspace** 로 알림 받을 채널 선택
+3. 생성된 `https://hooks.slack.com/services/...` URL 을 **Secret** 으로 등록합니다
+   (URL 자체가 비밀이므로 Variables 가 아니라 Secrets):
+
+| Secret | 값 |
+| --- | --- |
+| `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL |
+
+`gh` CLI 로 등록하려면:
+
+```bash
+gh secret set SLACK_WEBHOOK_URL   # 프롬프트에 URL 붙여넣기 (셸 히스토리에 안 남음)
+```
+
 ## 로컬 실행
 
 ```bash
