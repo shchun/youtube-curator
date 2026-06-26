@@ -87,6 +87,26 @@ def _fetch_rows(client, playlist_id: str, limit: int = 0) -> list[dict]:
             return rows
 
 
+def _sort_rows(rows: list[dict], key: str | None, desc: bool) -> list[dict]:
+    """행을 지정한 키로 정렬하고 index 를 출력 순서대로 다시 매긴다.
+
+    key=None 이면 플레이리스트 원본 순서를 유지한다.
+    """
+    if key:
+        keyfuncs = {
+            "published": lambda r: r["published_at"],
+            "title": lambda r: r["title"].casefold(),
+            "channel": lambda r: r["channel"].casefold(),
+            "position": lambda r: int(r["position"]) if r["position"] != "" else -1,
+        }
+        rows = sorted(rows, key=keyfuncs[key], reverse=desc)
+    elif desc:
+        rows = list(reversed(rows))
+    for i, row in enumerate(rows, 1):
+        row["index"] = i
+    return rows
+
+
 def _write_csv(rows: list[dict], out_path: Path) -> None:
     """utf-8-sig(BOM 포함)로 저장해 Excel 에서 한글이 깨지지 않게 한다."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -103,7 +123,9 @@ def _safe_filename(name: str) -> str:
     return cleaned or "untitled"
 
 
-def _export_all(client, outdir: Path, limit: int) -> int:
+def _export_all(
+    client, outdir: Path, limit: int, sort: str | None = None, desc: bool = False
+) -> int:
     """내 플레이리스트 전체 + 좋아요 + 업로드를 각각 CSV 파일로 내보낸다."""
     targets: list[tuple[str, str]] = []  # (파일명 stem, playlist_id)
 
@@ -135,7 +157,7 @@ def _export_all(client, outdir: Path, limit: int) -> int:
     date = datetime.now().strftime("%Y%m%d")
     print(f"총 {len(targets)}개 플레이리스트를 {outdir} 에 내보냅니다.\n", file=sys.stderr)
     for name, pid in targets:
-        rows = _fetch_rows(client, pid, limit)
+        rows = _sort_rows(_fetch_rows(client, pid, limit), sort, desc)
         out_path = outdir / f"{_safe_filename(name)}_{date}.csv"
         _write_csv(rows, out_path)
         print(f"  {name}: {len(rows)}개 → {out_path}", file=sys.stderr)
@@ -159,6 +181,14 @@ def main(argv: list[str] | None = None) -> int:
         "--outdir", default="data", help="--all 일 때 저장 폴더 (기본: data)"
     )
     parser.add_argument("--limit", type=int, default=0, help="개수 제한 (0=전체)")
+    parser.add_argument(
+        "--sort",
+        choices=["published", "title", "channel", "position"],
+        help="정렬 키 (생략 시 플레이리스트 원본 순서)",
+    )
+    parser.add_argument(
+        "--desc", action="store_true", help="내림차순 (정렬 키와 함께, 또는 단독으로 역순)"
+    )
     args = parser.parse_args(argv)
 
     _load_dotenv(ROOT / ".env")
@@ -176,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
         outdir = Path(args.outdir)
         if not outdir.is_absolute():
             outdir = ROOT / outdir
-        return _export_all(client, outdir, args.limit)
+        return _export_all(client, outdir, args.limit, args.sort, args.desc)
 
     # 단일 소스 → 플레이리스트 ID 확정
     if args.likes or args.uploads:
@@ -197,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         playlist_id = args.id
 
-    rows = _fetch_rows(client, playlist_id, args.limit)
+    rows = _sort_rows(_fetch_rows(client, playlist_id, args.limit), args.sort, args.desc)
 
     # CSV 출력 (파일이면 utf-8-sig, 아니면 stdout)
     if args.output:
