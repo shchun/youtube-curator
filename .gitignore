@@ -9,3 +9,6 @@ venv/
 client_secret*.json
 *.token
 .env
+
+# 스크립트로 내보낸 데이터(좋아요/업로드 CSV 등)
+data/
