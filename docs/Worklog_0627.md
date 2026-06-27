@@ -23,3 +23,27 @@
 - `.gitignore` 에 `data/` 추가 (내보낸 CSV 는 커밋하지 않음).
 - 동영상 목록 조회 스크립트 3개(`list_liked_videos` / `list_uploaded_videos` / `list_playlist_videos`)는 `export_playlist_csv.py` 에 흡수되어 삭제.
 - 자격증명은 환경변수에서만 읽으므로, 각 스크립트가 리포 루트 `.env` 를 단순 파싱해 로드(python-dotenv 불필요).
+
+## 데이터 분석 · 클러스터링 플랫폼 설계서 작성
+
+플레이리스트 데이터를 입력으로 임베딩→클러스터링→시각화하는 분석 플랫폼 설계서(`docs/Plan-data-analysis-platform.md`)를 작성·리뷰했다. (구현은 아직, 문서 단계)
+
+### 한 일
+- 기존 "로그 데이터 클러스터링" 템플릿을 **유튜브 플레이리스트 분석**용으로 전면 개편.
+- 파이프라인 확정: 수집(`playlistItems.list`) → **상세 보강(`videos.list` 50개 배치)** → 단일 `videos` 테이블 UPSERT → 임베딩 → 클러스터링(KMeans/HDBSCAN) → UMAP 2D 투영 → Streamlit 시각화.
+- 여러 차례 리뷰하며 설계 결정을 닫음.
+
+### 주요 결정
+- **임베딩:** OpenAI `text-embedding-3-large` 를 `dimensions=1536` 으로 호출 → `embedding VECTOR(1536)` (pgvector HNSW 한도 2000 이내). 키는 루트 `.env` 의 `OPENAI_API_KEY`. (대안: 로컬 무료 `ko-sroberta`/`bge-m3`)
+- **스키마:** 단일 `videos` 테이블, **`video_id` PK** + **`source_playlists` JSONB**(여러 플레이리스트 출처를 배열로). PK 충돌로 자연 dedup, 임베딩·클러스터링 영상당 1회.
+- **인프라:** 로컬 Docker Compose(`pgvector/pgvector:pg16`), DB 비번 로컬 기본값.
+- **시각화:** Streamlit(최종) + Superset(임시 탐색 옵션).
+- **디렉터리:** 신규 분석 코드 일체를 **`analysis/` 폴더** 신설(collect/enrich/embed/cluster/db/run_pipeline/dashboard + `db/init`). 기존 `curator/youtube_client.py` 만 재사용.
+- 비공개·삭제 영상은 저장 안 함(누락 수만 로깅), 카테고리는 id→이름 변환해 `category` 컬럼에 저장.
+
+### 알게 된 것 / 리뷰로 잡은 함정
+- **UPSERT 재실행 함정(§4.4):** 순진한 `DO UPDATE = EXCLUDED.*` 는 ① 파생 컬럼(embedding/cluster/umap)을 NULL 로 덮어쓰고 ② `source_playlists` 를 병합 대신 덮어씀 → 수집 컬럼만 갱신하고 source_playlists 는 `기존 || 신규` 후 dedup 하도록 SQL 예시를 문서에 명시.
+- 임베딩은 **`embedding IS NULL` 행만** 호출(멱등, 비용 절감).
+- `videos.list` 응답 타입 주의: `caption`/`categoryId` 는 문자열, `duration` ISO8601 엣지값(`P0D`), 통계 키 부재 → 방어 파싱.
+- `videos.list` 는 `id` 와 함께 쓰면 `maxResults` 가 무시됨.
+- pgvector HNSW 인덱스는 최대 2000차원 → `3-large`(3072)는 `dimensions=1536` 축소로 인덱스 사용 가능.
